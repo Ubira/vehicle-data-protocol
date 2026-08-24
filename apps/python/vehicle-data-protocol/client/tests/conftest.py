@@ -12,14 +12,22 @@ import sys
 
 import pytest
 
+# Make the packages importable regardless of the working directory (e.g. when pytest is
+# launched from a parent directory such as ``apps/python``) or whether they are
+# pip-installed: prepend the client package root and the shared common root.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_CLIENT_ROOT = os.path.abspath(os.path.join(_HERE, ".."))
+_VDP_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
+for _root in (_CLIENT_ROOT, os.path.join(_VDP_ROOT, "common")):
+    if os.path.isdir(_root) and _root not in sys.path:
+        sys.path.insert(0, _root)
+
 from vdp_client import VdpClient
 from vdp_client.transport import CallbackTransport
 
 
 def _add_server_to_path() -> bool:
-    here = os.path.dirname(os.path.abspath(__file__))
-    vdp_root = os.path.abspath(os.path.join(here, "..", ".."))
-    server_python = os.path.join(vdp_root, "server")
+    server_python = os.path.join(_VDP_ROOT, "server")
     if os.path.isdir(os.path.join(server_python, "vdp_server")):
         if server_python not in sys.path:
             sys.path.insert(0, server_python)

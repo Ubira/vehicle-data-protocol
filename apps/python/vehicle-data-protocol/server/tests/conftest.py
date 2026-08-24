@@ -1,6 +1,19 @@
 """Shared test fixtures: a deterministic server driven by a fake clock."""
 
+import os
+import sys
+
 import pytest
+
+# Make the packages importable regardless of the working directory (e.g. when pytest is
+# launched from a parent directory such as ``apps/python``) or whether they are
+# pip-installed: prepend the server package root and the shared common root.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_SERVER_ROOT = os.path.abspath(os.path.join(_HERE, ".."))
+_VDP_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
+for _root in (_SERVER_ROOT, os.path.join(_VDP_ROOT, "common")):
+    if os.path.isdir(_root) and _root not in sys.path:
+        sys.path.insert(0, _root)
 
 from vdp_server.dca import DemoDcaRemote
 from vdp_server.server import ServerConfig, VdpServer
