@@ -5,7 +5,7 @@ organised, the module boundaries, and developer-facing concerns. It maps the log
 components (see [logical view](../logical%20view/README.md)) onto code modules.
 
 > The application lives under
-> [apps/vehicle-data-protocol-server](../../apps/vehicle-data-protocol-server). This
+> [apps/python/vehicle-data-protocol/server](../../apps/python/vehicle-data-protocol/server). This
 > document defines the intended module structure so the implementation stays aligned
 > with the AUTOSAR VDP specification in [standards/](../../standards).
 
@@ -81,6 +81,6 @@ Implementers must apply these globally:
 ## 6. Client counterpart
 
 The client (VDP-CM Proxy) is developed under
-[apps/vehicle-data-protocol-client](../../apps/vehicle-data-protocol-client). It shares
+[apps/python/vehicle-data-protocol/client](../../apps/python/vehicle-data-protocol/client). It shares
 the `codec/` encoding rules and the message/command taxonomy but implements the
 requesting side. Keep the codec and shared constants consistent between the two.

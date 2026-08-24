@@ -1,0 +1,40 @@
+# VDP Common — shared protocol core
+
+`vdp_common` is the single source of truth for the parts of the AUTOSAR Vehicle Data
+Protocol (VDP) wire format that are **identical** on both sides of the link. It exists so
+that the client (VDP-CM Proxy, `vdp_client`) and the server (VDP-CM Remote, `vdp_server`)
+share one implementation of the protocol and cannot drift apart.
+
+## Modules
+
+| Module | Responsibility |
+| --- | --- |
+| `vdp_common.codec` | Little-endian `Reader`/`Writer`, `DDLE[UINT]`, relative timestamps |
+| `vdp_common.constants` | Protocol enums (`MessageType`, `CommandType`, …) and bit-field layout |
+| `vdp_common.header` | The 1-byte base header (`BaseHeader`, `decode_base_header`) |
+| `vdp_common.builders` | Control/version request builders and `DpConfig` |
+| `vdp_common.transport` | Transport ABC and 2-byte length framing helpers |
+
+## Role-specific extension points
+
+The two behavioural differences between the sides are handled by small overrides in the
+role packages, not by duplicating the shared code:
+
+- **Parse errors.** `codec.Reader` raises `DecodeError` by default. The server subclasses
+  it (`vdp_server.codec.Reader`) and overrides `Reader._decode_error` to raise a
+  `ProtocolError` carrying `INCORRECT_NUMBER_OF_BYTES`, so truncated requests become
+  protocol error messages.
+- **Transports.** `Transport`, `frame()` and `recv_message()` are shared; each package
+  provides its own `CallbackTransport` and TCP transport (client `connect` vs server
+  `listen`/`accept`, and the server's `maxMessageSize` enforcement).
+
+## Install (editable, local monorepo)
+
+```bash
+pip install -e apps/python/vehicle-data-protocol/common
+pip install -e apps/python/vehicle-data-protocol/client
+pip install -e apps/python/vehicle-data-protocol/server
+```
+
+Install `vdp-common` first: `vdp-client` and `vdp-server` declare it as a dependency and
+pip resolves it from the already-installed editable distribution.

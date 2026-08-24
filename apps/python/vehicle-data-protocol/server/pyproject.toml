@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vdp-server"
+version = "0.1.0"
+description = "Vehicle Data Protocol (VDP) Server — AUTOSAR VDP-CM Remote role"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "car-data-collection" }]
+dependencies = ["vdp-common"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+vdp-server-demo = "vdp_server.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vdp_server*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

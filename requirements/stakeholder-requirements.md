@@ -3,7 +3,7 @@
 ## 1. Purpose and Scope
 
 This document captures the stakeholder requirements for the **Vehicle Data Protocol
-(VDP) Server** implemented in this repository ([apps/vehicle-data-protocol-server](../apps/vehicle-data-protocol-server)).
+(VDP) Server** implemented in this repository ([apps/python/vehicle-data-protocol/server](../apps/python/vehicle-data-protocol/server)).
 
 The VDP Server realises the **VDP-CM Remote** role of the AUTOSAR *Vehicle Data
 Protocol* as defined in the standards under [standards/](../standards):

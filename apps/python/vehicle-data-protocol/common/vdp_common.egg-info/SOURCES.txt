@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+vdp_common/__init__.py
+vdp_common/builders.py
+vdp_common/codec.py
+vdp_common/constants.py
+vdp_common/header.py
+vdp_common/transport.py
+vdp_common.egg-info/PKG-INFO
+vdp_common.egg-info/SOURCES.txt
+vdp_common.egg-info/dependency_links.txt
+vdp_common.egg-info/requires.txt
+vdp_common.egg-info/top_level.txt

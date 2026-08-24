@@ -1,7 +1,7 @@
 # Vehicle Data Protocol Server — Documentation
 
 This folder documents the **Vehicle Data Protocol (VDP) Server**
-([apps/vehicle-data-protocol-server](../apps/vehicle-data-protocol-server)), the
+([apps/python/vehicle-data-protocol/server](../apps/python/vehicle-data-protocol/server)), the
 component that implements the **VDP-CM Remote** role of the AUTOSAR *Vehicle Data
 Protocol* (Foundation R25-11).
 
