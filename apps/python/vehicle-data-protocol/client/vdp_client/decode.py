@@ -162,7 +162,7 @@ def _as_error_code(value: int) -> ErrorCode:
     try:
         return ErrorCode(value)
     except ValueError:
-        return ErrorCode.GENERIC
+        return ErrorCode.GENERIC_REMOTE
 
 
 def decode_message(

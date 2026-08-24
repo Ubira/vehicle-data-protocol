@@ -186,7 +186,7 @@ static int handle_add(vdp_server_t *srv, vdp_reader_t *r, uint8_t ext, vdp_outco
 
             vdp_slot_t *slot = vdp_slots_add(&srv->slots);
             if (slot == NULL) {
-                outcome_fail(o, slot_id, VDP_EC_GENERIC);
+                outcome_fail(o, slot_id, VDP_EC_GENERIC_REMOTE);
                 continue;
             }
             slot->slot_id = slot_id;

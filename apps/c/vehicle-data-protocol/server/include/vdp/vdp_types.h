@@ -80,21 +80,41 @@ typedef enum {
     VDP_PEC_UNKNOWN_MESSAGE_TYPE     = 4
 } vdp_pec_t;
 
-/* --- Processing / async error codes --------------------------------------- */
+/* --- Error codes (EC, 1 byte) [FO_PRS_VDP_00005] --------------------------- */
+/* Sent from the VDP-CM Remote to the VDP-CM Proxy in a control response (sync) */
+/* or a data message (async). 0x00..0x08 originate in the DCA Remote;          */
+/* 0x70..0x7D originate in the VDP-CM Remote.                                   */
 typedef enum {
-    VDP_EC_NONE                 = 0x00,
-    VDP_EC_GENERIC              = 0x01,
-    VDP_EC_SAMPLING_ERROR       = 0x02,
-    VDP_EC_DATA_LOSS            = 0x03,
-    VDP_EC_CYCLIC_NOT_SUPPORTED = 0x07,
-    VDP_EC_ONCHANGE_NOT_SUPPORTED = 0x08,
-    VDP_EC_TIMEBASE_ERROR       = 0x72,
-    VDP_EC_BUFFER_FULL          = 0x74,
-    VDP_EC_UNKNOWN_SLOT_ID      = 0x75,
-    VDP_EC_UNKNOWN_DCA_REM_ID   = 0x76,
-    VDP_EC_PERSISTENCY_LIMIT    = 0x78,
-    VDP_EC_DUPLICATE_SLOT_ID    = 0x79,
-    VDP_EC_CYCLIC_TX_ALREADY_SET= 0x7C
+    /* Internal sentinel only: no error / success. Never sent on the wire (the
+     * on-wire value 0x00 means Generic error (DCA Remote) -> VDP_EC_GENERIC_DCA). */
+    VDP_EC_NONE                     = -1,
+
+    /* Errors originating in the DCA Remote (0x00..0x08) */
+    VDP_EC_GENERIC_DCA              = 0x00, /* Generic error (DCA Remote) */
+    VDP_EC_DATA_SOURCE_ERROR        = 0x01, /* Data source error (async) */
+    VDP_EC_SAMPLING_ERROR           = 0x02, /* Data point sampling error (sync/async) */
+    VDP_EC_DATA_LOSS                = 0x03, /* Data loss error (async) */
+    VDP_EC_INVALID_DCFG             = 0x04, /* Invalid DCA_REM_DP_DCFG (sync) */
+    VDP_EC_DUPLICATED_DCFG          = 0x05, /* Duplicated DCA_REM_DP_DCFG (sync) */
+    VDP_EC_DATA_POINT_LIMIT         = 0x06, /* Data point limit reached (sync) */
+    VDP_EC_CYCLIC_NOT_SUPPORTED     = 0x07, /* Sampling mode cyclic not supported (sync) */
+    VDP_EC_ONCHANGE_NOT_SUPPORTED   = 0x08, /* Sampling mode on-change not supported (sync) */
+
+    /* Errors originating in the VDP-CM Remote (0x70..0x7D) */
+    VDP_EC_GENERIC_REMOTE           = 0x70, /* Generic error (VDP-CM Remote) */
+    VDP_EC_TIMESTAMP_ENCODING_ERROR = 0x71, /* Timestamp encoding error (async) */
+    VDP_EC_TIMEBASE_ERROR           = 0x72, /* Timebase error (async) */
+    VDP_EC_SAMPLE_TOO_LONG          = 0x73, /* Sample too long (async) */
+    VDP_EC_BUFFER_FULL              = 0x74, /* Data buffer full (async) */
+    VDP_EC_UNKNOWN_SLOT_ID          = 0x75, /* VDP Slot ID unknown (sync) */
+    VDP_EC_UNKNOWN_DCA_REM_ID       = 0x76, /* DCA Remote ID unknown (sync) */
+    VDP_EC_SLOT_ID_OUT_OF_RANGE     = 0x77, /* VDP Slot ID out of range (sync) */
+    VDP_EC_PERSISTENCY_LIMIT        = 0x78, /* Persistency storage limit reached (sync) */
+    VDP_EC_DUPLICATE_SLOT_ID        = 0x79, /* VDP Slot ID already in use (sync) */
+    VDP_EC_DCA_REM_INCONSISTENCY    = 0x7A, /* DCA Remote inconsistency error (sync) */
+    VDP_EC_SECURED_CHANNEL_NOT_SUPPORTED = 0x7B, /* Secured channel not supported (sync) */
+    VDP_EC_CYCLIC_TX_ALREADY_SET    = 0x7C, /* TX mode cyclic already in use / not set (sync) */
+    VDP_EC_SLOT_ID_RESERVED         = 0x7D  /* VDP Slot ID reserved (sync) */
 } vdp_error_code_t;
 
 /* --- SET field bit positions ---------------------------------------------- */

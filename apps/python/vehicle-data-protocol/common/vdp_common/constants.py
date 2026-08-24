@@ -72,22 +72,42 @@ class ProtocolErrorCode(IntEnum):
     UNKNOWN_MESSAGE_TYPE = 4
 
 
-# --- Processing / async error codes [FO_PRS_VDP_00105..00118] and command
-#     error codes referenced in the scenarios. -------------------------------
+# --- Error codes (EC, 1 byte) [FO_PRS_VDP_00005] ------------------------------
+#     Values sent from the VDP-CM Remote to the VDP-CM Proxy in a control response
+#     (sync) or a data message (async). Codes 0x00..0x08 originate in the DCA
+#     Remote; codes 0x70..0x7D originate in the VDP-CM Remote. The bracketed tags
+#     reference the AUTOSAR requirement (FO_PRS_VDP_*) that defines each code.
 class ErrorCode(IntEnum):
-    NONE = 0x00
-    GENERIC = 0x01
-    SAMPLING_ERROR = 0x02          # async: sampling of a slot failed
-    DATA_LOSS = 0x03               # async: sample lost
-    CYCLIC_NOT_SUPPORTED = 0x07    # add: cyclic sampling not supported
-    ONCHANGE_NOT_SUPPORTED = 0x08  # add: on-change sampling not supported
-    TIMEBASE_ERROR = 0x72          # async: global time sync lost
-    BUFFER_FULL = 0x74             # async: sample buffer overflow (reported once)
-    UNKNOWN_SLOT_ID = 0x75         # activation/trigger/remove: slot not configured
-    UNKNOWN_DCA_REM_ID = 0x76      # add/remove: DCA Remote not known
-    PERSISTENCY_LIMIT = 0x78       # add: non-volatile storage exhausted
-    DUPLICATE_SLOT_ID = 0x79       # add: slot ID already configured
-    CYCLIC_TX_ALREADY_SET = 0x7C   # add: a cyclic TCT is already configured
+    # Internal sentinel only: "no error" / success. Never sent on the wire (the
+    # on-wire value 0x00 means Generic error (DCA Remote) -> GENERIC_DCA).
+    NONE = -1
+
+    # -- Errors originating in the DCA Remote (0x00..0x08) --
+    GENERIC_DCA = 0x00             # Generic error (DCA Remote)              [00018/00109]
+    DATA_SOURCE_ERROR = 0x01       # Data source error (async)              [00110]
+    SAMPLING_ERROR = 0x02          # Data point sampling error (sync/async) [00111/00134]
+    DATA_LOSS = 0x03               # Data loss error (async)                [00112]
+    INVALID_DCFG = 0x04            # Invalid DCA_REM_DP_DCFG (sync)          [00127]
+    DUPLICATED_DCFG = 0x05         # Duplicated DCA_REM_DP_DCFG (sync)       [00128]
+    DATA_POINT_LIMIT = 0x06        # Data point limit reached (sync)        [00129]
+    CYCLIC_NOT_SUPPORTED = 0x07    # Sampling mode cyclic not supported (sync)    [00062]
+    ONCHANGE_NOT_SUPPORTED = 0x08  # Sampling mode on-change not supported (sync) [00058]
+
+    # -- Errors originating in the VDP-CM Remote (0x70..0x7D) --
+    GENERIC_REMOTE = 0x70                  # Generic error (VDP-CM Remote)          [00019/00114]
+    TIMESTAMP_ENCODING_ERROR = 0x71        # Timestamp encoding error (async)       [00115]
+    TIMEBASE_ERROR = 0x72                  # Timebase error (async)                 [00116]
+    SAMPLE_TOO_LONG = 0x73                 # Sample too long (async)                [00117]
+    BUFFER_FULL = 0x74                     # Data buffer full (async)               [00118]
+    UNKNOWN_SLOT_ID = 0x75                 # VDP Slot ID unknown (sync)             [00135]
+    UNKNOWN_DCA_REM_ID = 0x76              # DCA Remote ID unknown (sync)           [00130]
+    SLOT_ID_OUT_OF_RANGE = 0x77            # VDP Slot ID out of range (sync)        [00131]
+    PERSISTENCY_LIMIT = 0x78               # Persistency storage limit reached (sync)     [00052]
+    DUPLICATE_SLOT_ID = 0x79               # VDP Slot ID already in use (sync)      [00132]
+    DCA_REM_INCONSISTENCY = 0x7A           # DCA Remote inconsistency error (sync)  [00133]
+    SECURED_CHANNEL_NOT_SUPPORTED = 0x7B   # Secured channel not supported (sync)   [00046]
+    CYCLIC_TX_ALREADY_SET = 0x7C           # TX mode cyclic already in use / not set (sync) [00145/00038]
+    SLOT_ID_RESERVED = 0x7D                # VDP Slot ID reserved (sync)            [00136]
 
 
 # --- SET field bit positions (per-slot VDP settings) --------------------------
