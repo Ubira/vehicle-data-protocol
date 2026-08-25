@@ -28,7 +28,9 @@ package, which both the client and the server depend on so they cannot drift apa
 | [vdp_client/decode.py](vdp_client/decode.py) | Decoders: version/control responses, data messages, error messages |
 | [vdp_client/client.py](vdp_client/client.py) | `VdpClient` — sequence-counter management, slot registry, high-level API |
 | [vdp_client/transport.py](vdp_client/transport.py) | Loopback / TCP client transports (on the shared `vdp_common.transport` base) |
-| [vdp_client/__main__.py](vdp_client/__main__.py) | Runnable demo driving the real server over a loopback |
+| [vdp_client/traffic.py](vdp_client/traffic.py) | Frame translation + dual (terminal & file) traffic logging |
+| [vdp_client/cli.py](vdp_client/cli.py) | Command-line client: send configurable commands, dump all traffic |
+| [vdp_client/__main__.py](vdp_client/__main__.py) | `python -m vdp_client` entry point (the CLI) |
 
 The protocol-level modules (codec, constants, header, request builders) are thin
 re-exports of [vdp_common](../common/README.md); the
@@ -61,14 +63,56 @@ slot's timestamp resolution from the add requests it sends, and uses it to recon
 absolute sample times when decoding data messages. On a sequence-counter error message
 it automatically resynchronises to the server's expected value.
 
-## Run the demo
+## Command-line client (traffic dump)
+
+The package ships a CLI that sends **configurable commands and payloads** and prints
+**every** frame in both directions — requests it sends (`P -> S`) and the responses,
+data and error messages the server sends back (`S -> P`). The same annotated dump (raw
+frames paired with their translation) is written to a log file whose name starts with the
+timestamp `YY-MM-DD_HH-MM-SS`, e.g. `26-08-25_14-30-00_vdp-traffic-dump.log`.
 
 ```powershell
 cd apps/python/vehicle-data-protocol/client
-python -m vdp_client
+python -m vdp_client --help
 ```
 
-The demo locates the sibling server package and runs scenarios S1–S3 across both apps.
+### Connection modes
+
+| Mode | How | Use |
+|------|-----|-----|
+| **TCP** | `--host H --port P` | Talk to a real VDP Server over the network. |
+| **Loopback** | `--loopback` | Drive the real in-process `vdp_server` (demo DCA + auto clock) — no network needed. |
+
+### Examples
+
+```powershell
+# Scripted loopback demo of scenarios S1-S3, dumping all traffic
+python -m vdp_client demo
+
+# Ask a real server for its protocol version (TCP)
+python -m vdp_client --host 127.0.0.1 --port 5000 version
+
+# Add a cyclic slot (100 ms, 10 ms timestamp resolution), initially active
+python -m vdp_client --loopback --listen 1 add --dca 1 --slot "id=1,tres=10,cyclic,sct=100,init_act"
+
+# Send an arbitrary raw payload
+python -m vdp_client --host 10.0.0.5 --port 5000 raw --hex "01 00"
+
+# Interactive session (type 'help' for the command list)
+python -m vdp_client --loopback interactive
+```
+
+### Options and commands
+
+Global: `--host`, `--port`, `--loopback`, `--log-dir` (default: the package `logs`
+folder, `vdp_client/logs/`), `--log-file`,
+`--no-color`, `--listen SECONDS` (how long a one-shot command keeps receiving).
+
+Commands: `version`, `add`, `activate`, `deactivate`, `trigger`, `sample`, `remove`
+(`--slots`/`--dcas`/`--all`/`--cyclic-tx`), `raw --hex`, `listen`, `interactive`, `demo`.
+A slot spec for `add` is a comma-separated list, e.g.
+`id=1,tres=10,cyclic,sct=100,init_act` (keys: `id`, `tres` in ms, `cyclic`, `sct`,
+`on_change`, `tx_cyclic`, `tct`, `init_act`, `sec`, `persist`, `tx_on_sampling`).
 
 ## Run the tests
 

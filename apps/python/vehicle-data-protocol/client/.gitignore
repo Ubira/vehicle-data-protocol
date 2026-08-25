@@ -6,3 +6,7 @@ __pycache__/
 build/
 dist/
 .venv/
+
+# VDP traffic dumps produced by the CLI
+vdp_client/logs/
+*_vdp-traffic-dump.log

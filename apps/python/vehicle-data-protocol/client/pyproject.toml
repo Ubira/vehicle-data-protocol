@@ -16,7 +16,8 @@ dependencies = ["vdp-common"]
 test = ["pytest>=7"]
 
 [project.scripts]
-vdp-client-demo = "vdp_client.__main__:main"
+vdp-client = "vdp_client.cli:main"
+vdp-client-demo = "vdp_client.cli:demo"
 
 [tool.setuptools.packages.find]
 where = ["."]
