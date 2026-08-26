@@ -98,22 +98,21 @@ def _render_raw(message: bytes) -> list[str]:
     if not message:
         return ["  raw: (empty)"]
     header_byte = message[0]
-    mt_value = header_byte & 0x03
-    add = (header_byte >> 2) & 0x1F
+    mt_value = (header_byte >> 5) & 0x07
+    add = header_byte & 0x1F
     reserved = (header_byte >> 7) & 1
     try:
         mt_name = MessageType(mt_value).name
         add_name = _add_label(MessageType(mt_value))
-    except ValueError:  # MT is 2 bits so this cannot happen, but stay defensive
+    except ValueError:  # MT is 3 bits so this cannot happen, but stay defensive
         mt_name = "?"
         add_name = "ADD"
     payload = message[1:]
     return [
         "  raw:",
-        f"    header : {header_byte:02x}"
-        f"  (MT={mt_name}[{mt_value}]  {add_name}(ADD)={add}"
-        f"  reserved={reserved})",
-        f"    payload: {_hex(payload)}",
+        f"    header : 0x{header_byte:02x}"
+        f"  (MT={mt_name}[{mt_value}]  {add_name}(ADD)={add})",
+        f"    payload: 0x{_hex(payload)}",
     ]
 
 

@@ -19,7 +19,7 @@ from enum import IntEnum
 PROTOCOL_VERSION_MAIN = 0x01
 PROTOCOL_VERSION_MINOR = 0x01
 
-# --- Message types (MT, 2 bits) ------------------------------------------------
+# --- Message types (MT, 3 bits) ------------------------------------------------
 class MessageType(IntEnum):
     VERSION = 0  # request <-> response
     CONTROL = 1  # request <-> response
