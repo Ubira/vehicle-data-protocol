@@ -26,6 +26,8 @@ from .commands import (
 )
 from .constants import (
     CommandType,
+    CT_MASK,
+    CT_SHIFT,
     MessageType,
     ProtocolErrorCode,
     SEQ_INIT,
@@ -78,7 +80,7 @@ class Dispatcher:
 
         try:
             ext = reader.read_u8()
-            ct = CommandType(ext & 0x03)
+            ct = CommandType((ext >> CT_SHIFT) & CT_MASK)
             handler = _CONTROL_HANDLERS[ct]
             outcome = handler(self._ctx, reader, ext)
         except ProtocolError as err:

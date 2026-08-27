@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from ..codec import Reader
 from ..constants import (
+    ADD_TCYCLIC_BIT,
     COL_SCHANGE_BIT,
     COL_SCYCLIC_BIT,
-    COL_TCYCLIC_BIT,
     ErrorCode,
     ProtocolErrorCode,
     REMOVE_DCA_REM_BIT,
@@ -23,6 +23,7 @@ from ..constants import (
     SET_PERSIST_BIT,
     SET_SEC_BIT,
     SET_TRES_MASK,
+    SET_TRES_SHIFT,
     SET_TXMODE_ON_SAMPLING_BIT,
     TimestampResolution,
 )
@@ -39,16 +40,30 @@ def _bit(value: int, position: int) -> bool:
 def handle_add(ctx: ServerContext, reader: Reader, flags: int) -> ControlOutcome:
     """Parse and apply an *add dynamic configuration* request.
 
-    Payload is one or more DCA groups, each: ``DCA_REM_ID`` (DDLE), ``DP_COUNT`` (DDLE),
-    then ``DP_COUNT`` x DP_DCFG. A DP_DCFG is: ``VDP_SLOT_ID`` (DDLE), ``SET`` (u8),
-    ``COL`` (u8), optional ``SCT`` (DDLE if cyclic), optional ``TCT`` (DDLE if tx-cyclic),
-    then ``DCA_REM_DP_DCFG`` = length (DDLE) + bytes.
+    The extended header (``flags``) carries ``TCYCLIC`` (bit 0); when set, a 2-byte
+    ``TCT`` (transmission cycle time, uint16 ms) follows and configures the single
+    cyclic transmission cadence of the remote (``FO_PRS_VDP_00024``,
+    ``FO_PRS_VDP_00027..00029``).
+
+    The payload is one or more DCA groups, each: ``DCA_REM_ID`` (DDLE), ``DP_COUNT``
+    (DDLE), then ``DP_COUNT`` x DP_DCFG. A DP_DCFG is: ``VDP_SLOT_ID`` (DDLE), ``SET``
+    (u8), ``COL`` (u8), optional ``SCT`` (uint16 if cyclic), then ``DCA_REM_DP_DCFG`` =
+    length (DDLE) + bytes.
     """
     outcome = ControlOutcome()
     seen_slots: set[int] = set()
 
+    # Transmission-mode cyclic (TCYCLIC) and its conditional TCT live in the header.
+    tx_cyclic = _bit(flags, ADD_TCYCLIC_BIT)
+    if tx_cyclic:
+        tct_ms = reader.read_u16()
+
     if reader.at_end():
         raise ProtocolError(ProtocolErrorCode.INCORRECT_NUMBER_OF_BYTES)
+
+    if tx_cyclic:
+        # Set (or replace) the single cyclic transmission cadence for the remote.
+        ctx.scheduler.set_cyclic_tct(tct_ms, ctx.now_ms())
 
     while not reader.at_end():
         dca_rem_id = reader.read_ddle()
@@ -62,10 +77,8 @@ def handle_add(ctx: ServerContext, reader: Reader, flags: int) -> ControlOutcome
 
             cyclic = _bit(col_byte, COL_SCYCLIC_BIT)
             on_change = _bit(col_byte, COL_SCHANGE_BIT)
-            tx_cyclic = _bit(col_byte, COL_TCYCLIC_BIT)
 
-            sct_ms = reader.read_ddle() if cyclic else 0
-            tct_ms = reader.read_ddle() if tx_cyclic else 0
+            sct_ms = reader.read_u16() if cyclic else 0
             dca_cfg_len = reader.read_ddle()
             reader.read_bytes(dca_cfg_len)  # DCA-specific opaque configuration
 
@@ -91,9 +104,6 @@ def handle_add(ctx: ServerContext, reader: Reader, flags: int) -> ControlOutcome
             if on_change and not dca.supports_on_change():
                 outcome.fail(SlotError(slot_id, ErrorCode.ONCHANGE_NOT_SUPPORTED))
                 continue
-            if tx_cyclic and ctx.scheduler.cyclic_tct_ms:
-                outcome.fail(SlotError(slot_id, ErrorCode.CYCLIC_TX_ALREADY_SET))
-                continue
 
             persist = _bit(set_byte, SET_PERSIST_BIT)
             if persist and not ctx.persistency.try_store(slot_id):
@@ -101,7 +111,7 @@ def handle_add(ctx: ServerContext, reader: Reader, flags: int) -> ControlOutcome
                 continue
 
             settings = VdpSettings(
-                tres=TimestampResolution(set_byte & SET_TRES_MASK),
+                tres=TimestampResolution((set_byte & SET_TRES_MASK) >> SET_TRES_SHIFT),
                 sec=_bit(set_byte, SET_SEC_BIT),
                 persist=persist,
                 tx_on_sampling=_bit(set_byte, SET_TXMODE_ON_SAMPLING_BIT),
@@ -111,8 +121,6 @@ def handle_add(ctx: ServerContext, reader: Reader, flags: int) -> ControlOutcome
                 on_change=on_change,
                 cyclic=cyclic,
                 sct_ms=sct_ms,
-                tx_cyclic=tx_cyclic,
-                tct_ms=tct_ms,
             )
             slot = Slot(
                 slot_id=slot_id,
@@ -125,8 +133,6 @@ def handle_add(ctx: ServerContext, reader: Reader, flags: int) -> ControlOutcome
             slot.next_sample_ms = now + sct_ms
             ctx.slots.add(slot)
 
-            if tx_cyclic:
-                ctx.scheduler.set_cyclic_tct(tct_ms, now)
             if slot.active:
                 dca.on_activate(slot_id)
 
@@ -148,8 +154,6 @@ def handle_remove(ctx: ServerContext, reader: Reader, flags: int) -> ControlOutc
         if not reader.at_end():
             raise ProtocolError(ProtocolErrorCode.INCORRECT_NUMBER_OF_BYTES)
         ctx.scheduler.clear_cyclic_tct()
-        for slot in ctx.slots.all_slots():
-            slot.collection.tx_cyclic = False
         return outcome
 
     # Global removal: no payload expected.
@@ -180,6 +184,7 @@ def handle_remove(ctx: ServerContext, reader: Reader, flags: int) -> ControlOutc
                 continue
             ctx.persistency.remove(slot_id)
 
-    if not ctx.slots.has_cyclic_tx():
-        ctx.scheduler.clear_cyclic_tct()
+    # The cyclic transmission cadence (TCT) is independent of any data point and is
+    # only removed via T_CYCLIC or GLOBAL (FO_PRS_VDP_00142), so it is left untouched
+    # here.
     return outcome

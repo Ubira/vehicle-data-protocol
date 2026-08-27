@@ -19,10 +19,11 @@ from dataclasses import dataclass
 from .codec import Writer
 from .constants import (
     ACT_BIT,
+    ADD_TCYCLIC_BIT,
     COL_SCHANGE_BIT,
     COL_SCYCLIC_BIT,
-    COL_TCYCLIC_BIT,
     CommandType,
+    CT_SHIFT,
     MessageType,
     REMOVE_DCA_REM_BIT,
     REMOVE_GLOBAL_BIT,
@@ -30,6 +31,7 @@ from .constants import (
     SET_INIT_ACT_BIT,
     SET_PERSIST_BIT,
     SET_SEC_BIT,
+    SET_TRES_SHIFT,
     SET_TXMODE_ON_SAMPLING_BIT,
     TX_TRIG_BIT,
     TimestampResolution,
@@ -43,6 +45,11 @@ def _base(mt: MessageType, add: int) -> Writer:
     return writer
 
 
+def _ext_header(ct: CommandType, flags: int = 0) -> int:
+    """Build a control extended-header byte: bits [7:5] = ``CT``, bits [4:0] = flags."""
+    return ((int(ct) & 0x07) << CT_SHIFT) | (flags & 0x1F)
+
+
 def version_request() -> bytes:
     """Version request (``MT=0``, no payload). Does not use the sequence counter."""
     return _base(MessageType.VERSION, 0).to_bytes()
@@ -53,6 +60,8 @@ class DpConfig:
     """A single data-point configuration inside an add request.
 
     Mirrors the server's slot ``SET``/``COL`` fields (see the shared wire format).
+    The transmission-cycle settings (``TCYCLIC`` / ``TCT``) are *not* per data point;
+    they belong to the add-configuration extended header (see :func:`add_config`).
     """
 
     slot_id: int
@@ -64,12 +73,10 @@ class DpConfig:
     on_change: bool = False
     cyclic: bool = False
     sct_ms: int = 0
-    tx_cyclic: bool = False
-    tct_ms: int = 0
     dca_config: bytes = b""
 
     def _set_byte(self) -> int:
-        value = int(self.tres) & 0x03
+        value = (int(self.tres) & 0x07) << SET_TRES_SHIFT
         value |= self.sec << SET_SEC_BIT
         value |= self.persist << SET_PERSIST_BIT
         value |= self.tx_on_sampling << SET_TXMODE_ON_SAMPLING_BIT
@@ -79,7 +86,6 @@ class DpConfig:
     def _col_byte(self) -> int:
         value = self.on_change << COL_SCHANGE_BIT
         value |= self.cyclic << COL_SCYCLIC_BIT
-        value |= self.tx_cyclic << COL_TCYCLIC_BIT
         return value
 
     def encode(self, writer: Writer) -> None:
@@ -87,16 +93,31 @@ class DpConfig:
         writer.write_u8(self._set_byte())
         writer.write_u8(self._col_byte())
         if self.cyclic:
-            writer.write_ddle(self.sct_ms)
-        if self.tx_cyclic:
-            writer.write_ddle(self.tct_ms)
+            writer.write_u16(self.sct_ms)  # SCT is a uint16 [FO_PRS_VDP_00060]
         writer.write_ddle(len(self.dca_config))
         writer.write_bytes(self.dca_config)
 
 
-def add_config(con_sq_ct: int, dca_rem_id: int, dps: list[DpConfig]) -> bytes:
+def add_config(
+    con_sq_ct: int,
+    dca_rem_id: int,
+    dps: list[DpConfig],
+    *,
+    tx_cyclic: bool = False,
+    tct_ms: int = 0,
+) -> bytes:
+    """Build an add-dynamic-configuration request (``CT=0``).
+
+    The ``TCYCLIC`` flag and its conditional 2-byte ``TCT`` (transmission cycle time,
+    uint16 milliseconds) live in the extended header per ``FO_PRS_VDP_00024`` /
+    ``FO_PRS_VDP_00028``; they configure the single cyclic transmission cadence of the
+    remote, not an individual data point.
+    """
+    flags = int(tx_cyclic) << ADD_TCYCLIC_BIT
     writer = _base(MessageType.CONTROL, con_sq_ct)
-    writer.write_u8(int(CommandType.ADD_CONFIG))  # CT in bits [1:0]
+    writer.write_u8(_ext_header(CommandType.ADD_CONFIG, flags))
+    if tx_cyclic:
+        writer.write_u16(tct_ms)  # TCT is a uint16 [FO_PRS_VDP_00028]
     writer.write_ddle(dca_rem_id)
     writer.write_ddle(len(dps))
     for dp in dps:
@@ -106,8 +127,7 @@ def add_config(con_sq_ct: int, dca_rem_id: int, dps: list[DpConfig]) -> bytes:
 
 def activation(con_sq_ct: int, activate: bool, slot_ids: list[int]) -> bytes:
     writer = _base(MessageType.CONTROL, con_sq_ct)
-    ext = int(CommandType.ACTIVATION) | (int(activate) << ACT_BIT)
-    writer.write_u8(ext)
+    writer.write_u8(_ext_header(CommandType.ACTIVATION, int(activate) << ACT_BIT))
     for slot_id in slot_ids:
         writer.write_ddle(slot_id)
     return writer.to_bytes()
@@ -115,8 +135,7 @@ def activation(con_sq_ct: int, activate: bool, slot_ids: list[int]) -> bytes:
 
 def trigger(con_sq_ct: int, tx_trigger: bool, slot_ids: list[int]) -> bytes:
     writer = _base(MessageType.CONTROL, con_sq_ct)
-    ext = int(CommandType.TRIGGER) | (int(tx_trigger) << TX_TRIG_BIT)
-    writer.write_u8(ext)
+    writer.write_u8(_ext_header(CommandType.TRIGGER, int(tx_trigger) << TX_TRIG_BIT))
     for slot_id in slot_ids:
         writer.write_ddle(slot_id)
     return writer.to_bytes()
@@ -124,7 +143,7 @@ def trigger(con_sq_ct: int, tx_trigger: bool, slot_ids: list[int]) -> bytes:
 
 def remove_slots(con_sq_ct: int, slot_ids: list[int]) -> bytes:
     writer = _base(MessageType.CONTROL, con_sq_ct)
-    writer.write_u8(int(CommandType.REMOVE_CONFIG))
+    writer.write_u8(_ext_header(CommandType.REMOVE_CONFIG))
     for slot_id in slot_ids:
         writer.write_ddle(slot_id)
     return writer.to_bytes()
@@ -132,7 +151,7 @@ def remove_slots(con_sq_ct: int, slot_ids: list[int]) -> bytes:
 
 def remove_dcas(con_sq_ct: int, dca_ids: list[int]) -> bytes:
     writer = _base(MessageType.CONTROL, con_sq_ct)
-    writer.write_u8(int(CommandType.REMOVE_CONFIG) | (1 << REMOVE_DCA_REM_BIT))
+    writer.write_u8(_ext_header(CommandType.REMOVE_CONFIG, 1 << REMOVE_DCA_REM_BIT))
     for dca_id in dca_ids:
         writer.write_ddle(dca_id)
     return writer.to_bytes()
@@ -140,13 +159,13 @@ def remove_dcas(con_sq_ct: int, dca_ids: list[int]) -> bytes:
 
 def remove_all(con_sq_ct: int) -> bytes:
     writer = _base(MessageType.CONTROL, con_sq_ct)
-    writer.write_u8(int(CommandType.REMOVE_CONFIG) | (1 << REMOVE_GLOBAL_BIT))
+    writer.write_u8(_ext_header(CommandType.REMOVE_CONFIG, 1 << REMOVE_GLOBAL_BIT))
     return writer.to_bytes()
 
 
 def remove_cyclic_tx(con_sq_ct: int) -> bytes:
     writer = _base(MessageType.CONTROL, con_sq_ct)
-    writer.write_u8(int(CommandType.REMOVE_CONFIG) | (1 << REMOVE_T_CYCLIC_BIT))
+    writer.write_u8(_ext_header(CommandType.REMOVE_CONFIG, 1 << REMOVE_T_CYCLIC_BIT))
     return writer.to_bytes()
 
 

@@ -29,10 +29,12 @@ from .codec import DecodeError, Reader
 from .constants import (
     ACK_BIT,
     ACT_BIT,
+    ADD_TCYCLIC_BIT,
     COL_SCHANGE_BIT,
     COL_SCYCLIC_BIT,
-    COL_TCYCLIC_BIT,
     CommandType,
+    CT_MASK,
+    CT_SHIFT,
     MessageType,
     REMOVE_DCA_REM_BIT,
     REMOVE_GLOBAL_BIT,
@@ -41,6 +43,7 @@ from .constants import (
     SET_PERSIST_BIT,
     SET_SEC_BIT,
     SET_TRES_MASK,
+    SET_TRES_SHIFT,
     SET_TXMODE_ON_SAMPLING_BIT,
     TRES_TO_MS,
     TX_TRIG_BIT,
@@ -126,23 +129,26 @@ def _tres_ms(tres_value: int) -> str:
         return f"?({tres_value})"
 
 
-def _translate_add_config(reader: Reader) -> list[str]:
+def _translate_add_config(ext: int, reader: Reader) -> list[str]:
+    lines: list[str] = []
+    tx_cyclic = bool((ext >> ADD_TCYCLIC_BIT) & 1)
+    if tx_cyclic:
+        tct = reader.read_u16()
+        lines.append(f"  tx_cyclic=1 TCT={tct}ms")
     dca_rem_id = reader.read_ddle()
     count = reader.read_ddle()
-    lines = [f"  DCA_REM_ID={dca_rem_id}  data_points={count}"]
+    lines.append(f"  DCA_REM_ID={dca_rem_id}  data_points={count}")
     for _ in range(count):
         slot_id = reader.read_ddle()
         set_byte = reader.read_u8()
         col_byte = reader.read_u8()
         cyclic = bool((col_byte >> COL_SCYCLIC_BIT) & 1)
         on_change = bool((col_byte >> COL_SCHANGE_BIT) & 1)
-        tx_cyclic = bool((col_byte >> COL_TCYCLIC_BIT) & 1)
-        sct = reader.read_ddle() if cyclic else None
-        tct = reader.read_ddle() if tx_cyclic else None
+        sct = reader.read_u16() if cyclic else None
         cfg_len = reader.read_ddle()
         cfg = reader.read_bytes(cfg_len)
         lines.append(
-            f"  slot {slot_id}: TRES={_tres_ms(set_byte & SET_TRES_MASK)}"
+            f"  slot {slot_id}: TRES={_tres_ms((set_byte & SET_TRES_MASK) >> SET_TRES_SHIFT)}"
             f" SEC={(set_byte >> SET_SEC_BIT) & 1}"
             f" PERSIST={(set_byte >> SET_PERSIST_BIT) & 1}"
             f" TX_ON_SAMPLING={(set_byte >> SET_TXMODE_ON_SAMPLING_BIT) & 1}"
@@ -151,8 +157,6 @@ def _translate_add_config(reader: Reader) -> list[str]:
         detail = (
             f"          on_change={int(on_change)} cyclic={int(cyclic)}"
             + (f" SCT={sct}ms" if sct is not None else "")
-            + f" tx_cyclic={int(tx_cyclic)}"
-            + (f" TCT={tct}ms" if tct is not None else "")
             + f" dca_config={_hex(cfg)}"
         )
         lines.append(detail)
@@ -179,10 +183,10 @@ def _read_id_list(reader: Reader) -> list[int]:
 
 def _translate_control_request(con_sq_ct: int, reader: Reader) -> list[str]:
     ext = reader.read_u8()
-    command = CommandType(ext & 0x03)
+    command = CommandType((ext >> CT_SHIFT) & CT_MASK)
     head = f"CT={command.name}  CON_SQ_CT={con_sq_ct}"
     if command == CommandType.ADD_CONFIG:
-        return [head, *_translate_add_config(reader)]
+        return [head, *_translate_add_config(ext, reader)]
     if command == CommandType.REMOVE_CONFIG:
         return [head, *_translate_remove(ext, reader)]
     if command == CommandType.ACTIVATION:
@@ -257,7 +261,7 @@ def summary_line(message: bytes, direction: Direction) -> str:
     if not message:
         return "empty frame"
     try:
-        mt = MessageType(message[0] & 0x03)
+        mt = MessageType((message[0] >> 5) & 0x07)
     except ValueError:
         return "unknown frame"
     suffix = "request" if direction == Direction.PROXY_TO_SERVER else "response/message"

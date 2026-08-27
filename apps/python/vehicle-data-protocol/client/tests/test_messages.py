@@ -36,7 +36,7 @@ def test_add_config_layout():
     assert header.mt == MessageType.CONTROL
     assert header.add == 3
     ext = reader.read_u8()
-    assert CommandType(ext & 0x03) == CommandType.ADD_CONFIG
+    assert CommandType((ext >> 5) & 0x07) == CommandType.ADD_CONFIG
     assert reader.read_ddle() == 1  # DCA_REM_ID
     assert reader.read_ddle() == 1  # DP_COUNT
     assert reader.read_ddle() == 2  # slot id
@@ -47,5 +47,5 @@ def test_trigger_transmission_only_layout():
     reader = Reader(msg)
     decode_base_header(reader)
     ext = reader.read_u8()
-    assert CommandType(ext & 0x03) == CommandType.TRIGGER
+    assert CommandType((ext >> 5) & 0x07) == CommandType.TRIGGER
     assert reader.at_end()  # no slot IDs

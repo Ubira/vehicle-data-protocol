@@ -112,7 +112,8 @@ Commands: `version`, `add`, `activate`, `deactivate`, `trigger`, `sample`, `remo
 (`--slots`/`--dcas`/`--all`/`--cyclic-tx`), `raw --hex`, `listen`, `interactive`, `demo`.
 A slot spec for `add` is a comma-separated list, e.g.
 `id=1,tres=10,cyclic,sct=100,init_act` (keys: `id`, `tres` in ms, `cyclic`, `sct`,
-`on_change`, `tx_cyclic`, `tct`, `init_act`, `sec`, `persist`, `tx_on_sampling`).
+`on_change`, `init_act`, `sec`, `persist`, `tx_on_sampling`). Cyclic transmission is
+request-level: use `add --tx-cyclic --tct MS` (`FO_PRS_VDP_00024`).
 
 ## Run the tests
 

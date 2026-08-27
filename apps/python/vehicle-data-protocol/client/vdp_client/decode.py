@@ -23,6 +23,8 @@ from .codec import DecodeError, Reader, reconstruct_timestamp
 from .constants import (
     ACK_BIT,
     CommandType,
+    CT_MASK,
+    CT_SHIFT,
     ErrorCode,
     MessageType,
     ProtocolErrorCode,
@@ -98,7 +100,7 @@ def _decode_version(reader: Reader) -> VersionResponse:
 
 def _decode_control_response(con_sq_ct: int, reader: Reader) -> ControlResponse:
     ext = reader.read_u8()
-    command = CommandType(ext & 0x03)
+    command = CommandType((ext >> CT_SHIFT) & CT_MASK)
     ack = bool((ext >> ACK_BIT) & 1)
     errors: list[SlotErrorInfo] = []
     if not ack:

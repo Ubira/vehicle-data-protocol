@@ -69,12 +69,26 @@ class VdpClient:
         """Send a protocol version request (does not consume the sequence counter)."""
         self._transport.send(messages.version_request())
 
-    def add_config(self, dca_rem_id: int, dps: list[DpConfig]) -> int:
-        """Send an add-dynamic-configuration request; returns the ``CON_SQ_CT`` used."""
+    def add_config(
+        self,
+        dca_rem_id: int,
+        dps: list[DpConfig],
+        *,
+        tx_cyclic: bool = False,
+        tct_ms: int = 0,
+    ) -> int:
+        """Send an add-dynamic-configuration request; returns the ``CON_SQ_CT`` used.
+
+        ``tx_cyclic`` / ``tct_ms`` request cyclic transmission at ``tct_ms`` milliseconds
+        for the remote (carried in the extended header, ``FO_PRS_VDP_00024``).
+        """
         seq = self._con_sq_ct
         for dp in dps:
             self._slot_tres[dp.slot_id] = dp.tres
-        return self._send_control(messages.add_config(seq, dca_rem_id, dps), seq)
+        message = messages.add_config(
+            seq, dca_rem_id, dps, tx_cyclic=tx_cyclic, tct_ms=tct_ms
+        )
+        return self._send_control(message, seq)
 
     def remove_slots(self, slot_ids: list[int]) -> int:
         seq = self._con_sq_ct

@@ -19,7 +19,8 @@ from enum import IntEnum
 PROTOCOL_VERSION_MAIN = 0x01
 PROTOCOL_VERSION_MINOR = 0x01
 
-# --- Message types (MT, 3 bits) ------------------------------------------------
+# --- Message types (MT, 3 bits) [FO_PRS_VDP_00002], [00007] -------------------
+#     Carried in the base header bits [7:5] (see ``header.py``).
 class MessageType(IntEnum):
     VERSION = 0  # request <-> response
     CONTROL = 1  # request <-> response
@@ -27,12 +28,18 @@ class MessageType(IntEnum):
     ERROR = 3    # server -> client only
 
 
-# --- Control command types (CT, 2 bits) ---------------------------------------
+# --- Control command types (CT, 3 bits) [FO_PRS_VDP_00048], [00009] -----------
+#     Carried in the control extended-header bits [7:5]; values 4..7 are reserved.
 class CommandType(IntEnum):
     ADD_CONFIG = 0
     REMOVE_CONFIG = 1
     ACTIVATION = 2
     TRIGGER = 3
+
+
+# Command type field position within the extended header (bits [7:5]).
+CT_SHIFT = 5
+CT_MASK = 0x07
 
 
 # --- Sequence counters [FO_PRS_VDP_00010..00015], [00092..00095] --------------
@@ -48,14 +55,21 @@ SLOT_ID_MAX_LIMIT = 16382     # maxSlotID must be <= 16382
 SLOT_ID_ASYNC_ERROR = 16383   # reserved marker (encodes to bytes 0xFF 0x7F)
 ASYNC_ERROR_MARKER = (0xFF, 0x7F)
 
-# --- Timestamp resolution (TRES, 2 bits) --------------------------------------
+# --- Timestamp resolution (TRES, 3 bits) [FO_PRS_VDP_00042] --------------------
 class TimestampResolution(IntEnum):
-    MS_1 = 0
-    MS_10 = 1
-    MS_100 = 2
-    S_1 = 3
+    US_1 = 0    # 1 microsecond
+    US_10 = 1   # 10 microseconds
+    US_100 = 2  # 100 microseconds
+    MS_1 = 3    # 1 millisecond
+    MS_10 = 4   # 10 milliseconds
+    MS_100 = 5  # 100 milliseconds
+    S_1 = 6     # 1 second
+    # value 7 is reserved and unused
 
 
+# Resolution expressed in whole milliseconds. Only the millisecond-and-coarser
+# resolutions are listed: this reference implementation models time in integer
+# milliseconds and therefore does not sample at the sub-millisecond resolutions.
 TRES_TO_MS = {
     TimestampResolution.MS_1: 1,
     TimestampResolution.MS_10: 10,
@@ -110,27 +124,42 @@ class ErrorCode(IntEnum):
     SLOT_ID_RESERVED = 0x7D                # VDP Slot ID reserved (sync)            [00136]
 
 
-# --- SET field bit positions (per-slot VDP settings) --------------------------
-SET_TRES_MASK = 0b0000_0011   # bits [1:0]
-SET_SEC_BIT = 2
-SET_PERSIST_BIT = 3
-SET_TXMODE_ON_SAMPLING_BIT = 4
-SET_INIT_ACT_BIT = 5
+# --- SET field bit positions (per-slot VDP settings) [FO_PRS_VDP_00041] --------
+#     Byte layout: bit 7 reserved, bits [6:4] TRES, bit 3 SEC, bit 2 PERSIST,
+#     bit 1 TXMODE_ON_SAMPLING, bit 0 INIT_ACT.
+SET_TRES_SHIFT = 4
+SET_TRES_MASK = 0b0111_0000   # bits [6:4]
+SET_SEC_BIT = 3
+SET_PERSIST_BIT = 2
+SET_TXMODE_ON_SAMPLING_BIT = 1
+SET_INIT_ACT_BIT = 0
 
-# --- COL field bit positions (collection / sampling settings) -----------------
-COL_SCHANGE_BIT = 0
-COL_SCYCLIC_BIT = 1
-COL_TCYCLIC_BIT = 2
+# --- COL field bit positions (collection / sampling settings) [FO_PRS_VDP_00056]
+#     Byte layout: bits [7:2] reserved, bit 1 SCHANGE, bit 0 SCYCLIC.
+#     Note: transmission-mode-cyclic (TCYCLIC) is *not* part of COL; it lives in
+#     the add-configuration extended header (see ADD_TCYCLIC_BIT below).
+COL_SCHANGE_BIT = 1
+COL_SCYCLIC_BIT = 0
 
-# --- Remove-command flag bit positions ----------------------------------------
-REMOVE_GLOBAL_BIT = 2
-REMOVE_DCA_REM_BIT = 3
-REMOVE_T_CYCLIC_BIT = 4
+# --- Add-configuration extended-header flag [FO_PRS_VDP_00024] -----------------
+#     Byte 0: bits [7:5] CT, bits [4:1] reserved, bit 0 TCYCLIC. When TCYCLIC=1 a
+#     2-byte uint16 transmission cycle time (TCT) follows the extended-header byte.
+ADD_TCYCLIC_BIT = 0
 
-# --- Activation / trigger flag bit positions ----------------------------------
-ACT_BIT = 2        # activation: 1 = activate, 0 = deactivate
-TX_TRIG_BIT = 2    # trigger: 1 = transmission trigger
-ACK_BIT = 3        # control response acknowledge flag
+# --- Remove-command flag bit positions [FO_PRS_VDP_00141] ----------------------
+#     Byte 0: bits [7:5] CT, bits [4:3] reserved, bit 2 DCA_REM, bit 1 GLOBAL,
+#     bit 0 T_CYCLIC.
+REMOVE_DCA_REM_BIT = 2
+REMOVE_GLOBAL_BIT = 1
+REMOVE_T_CYCLIC_BIT = 0
+
+# --- Activation / trigger / response flag bit positions -----------------------
+#     Activation [FO_PRS_VDP_00067]: bit 0 ACT (1 = activate, 0 = deactivate).
+#     Trigger    [FO_PRS_VDP_00081]: bit 0 TX_TRIG (1 = transmission trigger).
+#     Response   [FO_PRS_VDP_00047]: bit 0 ACK (control-response acknowledge).
+ACT_BIT = 0
+TX_TRIG_BIT = 0
+ACK_BIT = 0
 
 
 __all__ = [
@@ -138,6 +167,8 @@ __all__ = [
     "PROTOCOL_VERSION_MINOR",
     "MessageType",
     "CommandType",
+    "CT_SHIFT",
+    "CT_MASK",
     "SEQ_MIN",
     "SEQ_MAX",
     "SEQ_INIT",
@@ -151,6 +182,7 @@ __all__ = [
     "TRES_TO_MS",
     "ProtocolErrorCode",
     "ErrorCode",
+    "SET_TRES_SHIFT",
     "SET_TRES_MASK",
     "SET_SEC_BIT",
     "SET_PERSIST_BIT",
@@ -158,7 +190,7 @@ __all__ = [
     "SET_INIT_ACT_BIT",
     "COL_SCHANGE_BIT",
     "COL_SCYCLIC_BIT",
-    "COL_TCYCLIC_BIT",
+    "ADD_TCYCLIC_BIT",
     "REMOVE_GLOBAL_BIT",
     "REMOVE_DCA_REM_BIT",
     "REMOVE_T_CYCLIC_BIT",

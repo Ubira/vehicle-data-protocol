@@ -30,13 +30,11 @@ class VdpSettings:
 
 @dataclass
 class CollectionSettings:
-    """Sampling / transmission behaviour (COL)."""
+    """Sampling behaviour (COL)."""
 
     on_change: bool = False   # SCHANGE
     cyclic: bool = False      # SCYCLIC
     sct_ms: int = 0           # sampling cycle time (when cyclic)
-    tx_cyclic: bool = False   # TCYCLIC
-    tct_ms: int = 0           # transmission cycle time (when tx_cyclic)
 
 
 @dataclass
@@ -88,9 +86,6 @@ class SlotTable:
 
     def clear(self) -> None:
         self._slots.clear()
-
-    def has_cyclic_tx(self) -> bool:
-        return any(s.collection.tx_cyclic for s in self._slots.values())
 
     def all_slots(self):
         return list(self._slots.values())

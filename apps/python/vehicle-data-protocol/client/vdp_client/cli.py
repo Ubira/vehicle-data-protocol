@@ -201,8 +201,10 @@ def _parse_slot(spec: str) -> DpConfig:
     """Parse a ``--slot`` spec: ``id=1,tres=10,cyclic,sct=100,init_act,...``.
 
     Keys: id (required), tres (ms: 1/10/100/1000), cyclic, sct (ms), on_change,
-    tx_cyclic, tct (ms), init_act, sec, persist, tx_on_sampling. Flags may appear bare
-    (``cyclic``) or as ``key=1``/``key=0``.
+    init_act, sec, persist, tx_on_sampling. Flags may appear bare (``cyclic``) or as
+    ``key=1``/``key=0``. The transmission-cycle settings (``tx_cyclic``/``tct``) are
+    request-level and are set with the ``add`` command's ``--tx-cyclic``/``--tct``
+    options, not per slot.
     """
     fields: dict[str, str] = {}
     for token in spec.split(","):
@@ -240,8 +242,6 @@ def _parse_slot(spec: str) -> DpConfig:
         on_change=flag("on_change"),
         cyclic=flag("cyclic"),
         sct_ms=num("sct"),
-        tx_cyclic=flag("tx_cyclic"),
-        tct_ms=num("tct"),
     )
 
 
@@ -266,7 +266,12 @@ def _dispatch(session: Session, args: argparse.Namespace) -> None:
     if cmd == "version":
         client.request_version()
     elif cmd == "add":
-        client.add_config(dca_rem_id=args.dca, dps=list(args.slot))
+        client.add_config(
+            dca_rem_id=args.dca,
+            dps=list(args.slot),
+            tx_cyclic=args.tx_cyclic,
+            tct_ms=args.tct,
+        )
     elif cmd == "activate":
         client.activate(args.slots)
     elif cmd == "deactivate":
@@ -454,6 +459,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_add.add_argument(
         "--slot", action="append", required=True, type=_parse_slot, metavar="SPEC",
         help="slot spec 'id=1,tres=10,cyclic,sct=100,init_act' (repeatable)",
+    )
+    p_add.add_argument(
+        "--tx-cyclic", dest="tx_cyclic", action="store_true",
+        help="request cyclic transmission (uses --tct)",
+    )
+    p_add.add_argument(
+        "--tct", type=int, default=0, metavar="MS",
+        help="transmission cycle time in ms (with --tx-cyclic)",
     )
 
     p_act = sub.add_parser("activate", help="activate slots")

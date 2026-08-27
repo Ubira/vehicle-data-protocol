@@ -1,13 +1,13 @@
 """Base header (de)serialisation — shared by the client and the server.
 
-Base header (1 byte), bit layout (little-endian bit numbering, LSB first):
+Base header (1 byte), bit layout (``FO_PRS_VDP_00002``):
 
-* bits ``[1:0]`` — ``MT`` (message type)
-* bits ``[6:2]`` — ``ADD`` (5-bit context field): the control sequence counter
+* bits ``[7:5]`` — ``MT`` (message type, 3 bits)
+* bits ``[4:0]`` — ``ADD`` (5-bit context field): the control sequence counter
   ``CON_SQ_CT`` for control messages / the data sequence counter ``SQ_CT`` for data
   messages; ``0`` for version and error messages
-* bit ``[7]`` — reserved, always ``0`` (``FO_PRS_VDP_00138``)
 
+There is no reserved bit in the base header: ``MT`` occupies the full top three bits.
 See the server's ``WIRE_FORMAT.md`` for the complete message layout.
 """
 
@@ -36,6 +36,5 @@ def decode_base_header(reader: Reader) -> BaseHeader:
     byte = reader.read_u8()
     mt_value = (byte >> 5) & 0x07
     add = byte & 0x1F
-    # bit 7 reserved; a set reserved bit is tolerated on decode but never emitted.
     mt = MessageType(mt_value)  # MT is 3 bits, so always a valid 0..7 value
     return BaseHeader(mt=mt, add=add)

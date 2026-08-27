@@ -51,7 +51,7 @@ def test_client_resyncs_on_sequence_error(client_loopback):
 
     err = (
         Writer()
-        .write_u8(int(MessageType.ERROR))
+        .write_u8((int(MessageType.ERROR) & 0x07) << 5)
         .write_u8(int(ProtocolErrorCode.CONTROL_SEQUENCE_COUNTER))
         .write_u8(9)
         .to_bytes()

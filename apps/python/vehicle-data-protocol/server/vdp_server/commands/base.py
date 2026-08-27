@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from ..codec import Writer
-from ..constants import ACK_BIT, CommandType, MessageType
+from ..constants import ACK_BIT, CommandType, CT_SHIFT, MessageType
 from ..errors import SlotError
 from ..header import BaseHeader
 
@@ -39,12 +39,13 @@ def encode_control_response(
 ) -> bytes:
     """Serialise a control response (``MT=1``) mirroring ``CON_SQ_CT`` and ``CT``.
 
-    Extended header byte: bits ``[1:0]`` = ``CT``; bit ``ACK_BIT`` = ``ACK``.
-    When ``ACK=0`` the payload is a list of ``(ref_id DDLE, error_code u8)`` pairs.
+    Extended header byte: bits ``[7:5]`` = ``CT``; bit ``ACK_BIT`` (bit 0) = ``ACK``
+    (``FO_PRS_VDP_00047``). When ``ACK=0`` the payload is a list of
+    ``(ref_id DDLE, error_code u8)`` pairs.
     """
     writer = Writer()
     BaseHeader(MessageType.CONTROL, add=con_sq_ct).encode(writer)
-    ext = int(ct) & 0x03
+    ext = (int(ct) & 0x07) << CT_SHIFT
     if outcome.ack:
         ext |= 1 << ACK_BIT
     writer.write_u8(ext)

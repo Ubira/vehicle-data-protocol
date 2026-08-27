@@ -20,7 +20,7 @@ from vdp_client.decode import (
 
 
 def _base(mt: MessageType, add: int = 0) -> Writer:
-    return Writer().write_u8((int(mt) & 0x03) | ((add & 0x1F) << 2))
+    return Writer().write_u8(((int(mt) & 0x07) << 5) | (add & 0x1F))
 
 
 def test_decode_version_response():
@@ -31,7 +31,7 @@ def test_decode_version_response():
 
 
 def test_decode_control_ack():
-    ext = int(CommandType.ACTIVATION) | (1 << ACK_BIT)
+    ext = ((int(CommandType.ACTIVATION) & 0x07) << 5) | (1 << ACK_BIT)
     msg = _base(MessageType.CONTROL, add=5).write_u8(ext).to_bytes()
     decoded = decode_message(msg)
     assert isinstance(decoded, ControlResponse)
@@ -41,7 +41,7 @@ def test_decode_control_ack():
 
 
 def test_decode_control_nack_with_errors():
-    ext = int(CommandType.ADD_CONFIG)  # ACK bit clear
+    ext = (int(CommandType.ADD_CONFIG) & 0x07) << 5  # ACK bit clear
     w = _base(MessageType.CONTROL, add=2).write_u8(ext)
     w.write_ddle(99).write_u8(int(ErrorCode.UNKNOWN_DCA_REM_ID))
     decoded = decode_message(w.to_bytes())
