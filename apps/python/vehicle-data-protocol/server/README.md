@@ -69,6 +69,4 @@ python -m pytest
   to emit data messages.
 - **Wire format:** the AUTOSAR PDFs are the normative source. Where their exact *bit*
   layout is not reproduced in the in-repo docs, this implementation defines a single
-  self-consistent encoding — see [WIRE_FORMAT.md](WIRE_FORMAT.md). The C implementation
-  under [../../../c/vehicle-data-protocol/server](../../../c/vehicle-data-protocol/server)
-  uses the **same** wire format so the two are interoperable.
+  self-consistent encoding — see [WIRE_FORMAT.md](WIRE_FORMAT.md).

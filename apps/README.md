@@ -7,7 +7,6 @@ same `vehicle-data-protocol/` structure underneath.
 ```
 apps/
   python/vehicle-data-protocol/   common (shared core) + server + client
-  c/vehicle-data-protocol/        server
 ```
 
 The **server** (VDP-CM Remote) runs on a remote ECU, receives control commands from the
@@ -28,13 +27,11 @@ The code is grounded in the repository documentation and requirements:
 | [python/…/common](python/vehicle-data-protocol/common/README.md) | Python 3.10+ | shared protocol core | `pip install -e .` | — |
 | [python/…/server](python/vehicle-data-protocol/server/README.md) | Python 3.10+ | VDP-CM Remote | `pip install -e .[test]` | `pytest` |
 | [python/…/client](python/vehicle-data-protocol/client/README.md) | Python 3.10+ | VDP-CM Proxy | `pip install -e .[test]` | `pytest` |
-| [c/…/server](c/vehicle-data-protocol/server/README.md) | C11 | VDP-CM Remote | CMake / MSVC | `ctest` |
 
-Both server implementations follow the module structure of the
-[development view](../docs/development%20view/development-view.md) and share a single
+The server implementation follows the module structure of the
+[development view](../docs/development%20view/development-view.md) and uses the
 wire format documented in
 [python/…/server/WIRE_FORMAT.md](python/vehicle-data-protocol/server/WIRE_FORMAT.md).
-Their demos produce byte-identical output, so a Proxy can talk to either.
 
 ## What is implemented
 
